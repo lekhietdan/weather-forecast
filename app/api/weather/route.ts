@@ -119,26 +119,27 @@ export async function POST(request: NextRequest) {
           name: "Đà Nẵng",
           lat: 16.0471,
           lon: 108.2068,
-          aliases: ["Thanh Pho GJa Nang", "Da Nang", "Danang"]
+          aliases: ["Thanh Pho GJa Nang", "Da Nang", "Danang", "Thanh Pho Da Nang", "THANH PHO GJA NANG"]
         },
         {
           name: "Hồ Chí Minh",
           lat: 10.7769,
           lon: 106.7009,
-          aliases: ["Thanh Pho Ho Chi Minh", "Ho Chi Minh City", "Ho Chi Minh"]
+          aliases: ["Thanh Pho Ho Chi Minh", "Ho Chi Minh City", "Ho Chi Minh", "TP Ho Chi Minh", "THANH PHO HO CHI MINH"]
         },
         {
           name: "Hà Nội",
           lat: 21.0285,
           lon: 105.8542,
-          aliases: ["Ha Noi", "Hanoi"]
+          aliases: ["Ha Noi", "Hanoi", "Thanh Pho Ha Noi", "THANH PHO HA NOI"]
         },
         // Thêm các thành phố khác nếu cần
       ];
-      // Tìm thành phố gần nhất dựa trên tên trả về hoặc khoảng cách
+      // So sánh không phân biệt hoa thường và loại bỏ dấu
+      const normalize = (str: string) => removeVietnameseTones(str).toLowerCase();
       const found = cityMap.find(cityObj =>
-        cityObj.aliases.includes(cityName) ||
-        (Math.abs(cityObj.lat - lat) < 0.2 && Math.abs(cityObj.lon - lon) < 0.2)
+        cityObj.aliases.some(alias => normalize(alias) === normalize(cityName)) ||
+        (Math.abs(cityObj.lat - lat) < 0.15 && Math.abs(cityObj.lon - lon) < 0.15)
       );
       if (found) {
         cityName = found.name;
