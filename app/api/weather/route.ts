@@ -1,6 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-// Thêm API key của bạn vào đây
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY || "c4a57ed41ee373c8e538b423c25ecec3"
 const BASE_URL = "https://api.openweathermap.org/data/2.5"
 
@@ -53,10 +51,11 @@ function removeVietnameseTones(str: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { city } = await request.json()
+    const body = await request.json();
+    const { city, lat, lon } = body;
 
-    if (!city) {
-      return NextResponse.json({ error: "City name is required" }, { status: 400 })
+    if (!city && (lat === undefined || lon === undefined)) {
+      return NextResponse.json({ error: "City name or coordinates are required" }, { status: 400 })
     }
 
     if (!OPENWEATHER_API_KEY || OPENWEATHER_API_KEY === "YOUR_API_KEY_HERE") {
@@ -69,13 +68,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Chuyển tên thành phố thành không dấu và viết thường
-    const normalizedCity = removeVietnameseTones(city).toLowerCase()
-
-    // Gọi API thời tiết hiện tại
-    const currentWeatherResponse = await fetch(
-      `${BASE_URL}/weather?q=${encodeURIComponent(normalizedCity)}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
-    )
+    let currentWeatherResponse, forecastResponse;
+    if (lat !== undefined && lon !== undefined) {
+      // Không chuẩn hóa tên thành phố khi dùng lat/lon
+      currentWeatherResponse = await fetch(
+        `${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
+      );
+      forecastResponse = await fetch(
+        `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
+      );
+    } else {
+      // Chỉ chuẩn hóa khi tìm kiếm theo tên thành phố
+      const normalizedCity = removeVietnameseTones(city).toLowerCase();
+      currentWeatherResponse = await fetch(
+        `${BASE_URL}/weather?q=${encodeURIComponent(normalizedCity)}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
+      );
+      forecastResponse = await fetch(
+        `${BASE_URL}/forecast?q=${encodeURIComponent(normalizedCity)}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
+      );
+    }
 
     if (!currentWeatherResponse.ok) {
       if (currentWeatherResponse.status === 404) {
@@ -92,10 +103,6 @@ export async function POST(request: NextRequest) {
     const currentWeather = await currentWeatherResponse.json()
 
     // Gọi API dự báo 5 ngày
-    const forecastResponse = await fetch(
-      `${BASE_URL}/forecast?q=${encodeURIComponent(normalizedCity)}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
-    )
-
     if (!forecastResponse.ok) {
       throw new Error("Lỗi khi gọi API dự báo thời tiết")
     }
@@ -103,8 +110,42 @@ export async function POST(request: NextRequest) {
     const forecastData = await forecastResponse.json()
 
     // Xử lý dữ liệu thời tiết hiện tại
+    // Ánh xạ lại tên thành phố phổ biến khi lấy theo lat/lon
+    let cityName = currentWeather.name;
+    if (lat !== undefined && lon !== undefined) {
+      // Danh sách ánh xạ lat/lon về tên tiếng Việt đúng
+      const cityMap = [
+        {
+          name: "Đà Nẵng",
+          lat: 16.0471,
+          lon: 108.2068,
+          aliases: ["Thanh Pho GJa Nang", "Da Nang", "Danang"]
+        },
+        {
+          name: "Hồ Chí Minh",
+          lat: 10.7769,
+          lon: 106.7009,
+          aliases: ["Thanh Pho Ho Chi Minh", "Ho Chi Minh City", "Ho Chi Minh"]
+        },
+        {
+          name: "Hà Nội",
+          lat: 21.0285,
+          lon: 105.8542,
+          aliases: ["Ha Noi", "Hanoi"]
+        },
+        // Thêm các thành phố khác nếu cần
+      ];
+      // Tìm thành phố gần nhất dựa trên tên trả về hoặc khoảng cách
+      const found = cityMap.find(cityObj =>
+        cityObj.aliases.includes(cityName) ||
+        (Math.abs(cityObj.lat - lat) < 0.2 && Math.abs(cityObj.lon - lon) < 0.2)
+      );
+      if (found) {
+        cityName = found.name;
+      }
+    }
     const current = {
-      city: currentWeather.name,
+      city: cityName,
       country: currentWeather.sys.country,
       temperature: Math.round(currentWeather.main.temp),
       description: translateDescription(currentWeather.weather[0].description),

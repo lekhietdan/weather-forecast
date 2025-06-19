@@ -184,6 +184,43 @@ export default function WeatherApp() {
     }
   }
 
+  // Hàm lấy thời tiết theo vị trí hiện tại
+  const getWeatherByLocation = () => {
+    if (navigator.geolocation) {
+      setLoading(true)
+      setError("")
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          fetch("/api/weather", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat: latitude, lon: longitude }),
+          })
+            .then((res) => {
+              if (!res.ok) throw new Error("Không thể lấy dữ liệu thời tiết từ vị trí hiện tại")
+              return res.json()
+            })
+            .then((data) => {
+              setWeather(data)
+              setCity("")
+            })
+            .catch((err) => {
+              setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định")
+              setWeather(null)
+            })
+            .finally(() => setLoading(false))
+        },
+        (error) => {
+          setError("Không thể truy cập vị trí. Vui lòng cho phép quyền truy cập vị trí trên trình duyệt.")
+          setLoading(false)
+        }
+      )
+    } else {
+      setError("Trình duyệt không hỗ trợ Geolocation.")
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     searchWeather()
@@ -234,6 +271,15 @@ export default function WeatherApp() {
                 ) : (
                   <Search className="w-5 h-5 text-white" />
                 )}
+              </Button>
+              <Button
+                type="button"
+                onClick={getWeatherByLocation}
+                disabled={loading}
+                className="absolute left-2 top-2 h-10 w-10 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 backdrop-blur-sm transition-all duration-300 group-hover:scale-105"
+                title="Lấy thời tiết theo vị trí hiện tại"
+              >
+                <MapPin className="w-5 h-5 text-white" />
               </Button>
             </div>
           </form>
