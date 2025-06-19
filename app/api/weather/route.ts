@@ -1,12 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY || "c4a57ed41ee373c8e538b423c25ecec3"
+const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY 
 const BASE_URL = "https://api.openweathermap.org/data/2.5"
 
-// Hàm chuyển đổi điều kiện thời tiết
 function mapWeatherCondition(weatherMain: string, weatherId: number): string {
   const main = weatherMain.toLowerCase()
 
-  // Dựa trên weather ID của OpenWeatherMap
   if (weatherId >= 200 && weatherId < 300) return "stormy" // Thunderstorm
   if (weatherId >= 300 && weatherId < 600) return "rainy" // Drizzle & Rain
   if (weatherId >= 600 && weatherId < 700) return "snowy" // Snow
@@ -37,7 +35,6 @@ function translateDescription(description: string): string {
   return translations[description.toLowerCase()] || description
 }
 
-// Hàm loại bỏ dấu tiếng Việt
 function removeVietnameseTones(str: string): string {
   return str
     .normalize('NFD')
@@ -70,7 +67,6 @@ export async function POST(request: NextRequest) {
 
     let currentWeatherResponse, forecastResponse;
     if (lat !== undefined && lon !== undefined) {
-      // Không chuẩn hóa tên thành phố khi dùng lat/lon
       currentWeatherResponse = await fetch(
         `${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
       );
@@ -78,7 +74,6 @@ export async function POST(request: NextRequest) {
         `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
       );
     } else {
-      // Chỉ chuẩn hóa khi tìm kiếm theo tên thành phố
       const normalizedCity = removeVietnameseTones(city).toLowerCase();
       currentWeatherResponse = await fetch(
         `${BASE_URL}/weather?q=${encodeURIComponent(normalizedCity)}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
